@@ -15,19 +15,18 @@ Your internal IP is: <h1 id="iplist"></h1>
 <br />
 <br />
 <p>Heavily inspired by <a href="https://2x.io/read/security-by-obscurity">this</a> and <a href="http://net.ipcalf.com/">this</a>.</p>
-<p><a href="https://github.com/whatismyinternalip/whatismyinternalip.github.io">Fork me on Github.</a></p>
 <p id="byline">Made by <a href="https://twitter.com/bengl">@bengl</a></p>
+<a href="https://github.com/whatismyinternalip/whatismyinternalip.github.io"><img style="position: absolute; top: 0; right: 0; border: 0;" src="https://s3.amazonaws.com/github/ribbons/forkme_right_darkblue_121621.png" alt="Fork me on GitHub"></a>
 
 
 
 <script>
 (function() {
   var RTCPeerConnection = window.webkitRTCPeerConnection || window.mozRTCPeerConnection;
-  var unavail = 'Not available. Try this:<br/><code>$ ifconfig | grep "inet " | cut -d " " -f2 | grep -v "^127.0"</code>';
   var ipElem = document.getElementById('iplist');
 
   if (!RTCPeerConnection) {
-    ipElem.innerHTML = unavail;
+    ipElem.innerHTML = 'Not available. Try this:<br/><code>$ ifconfig | grep "inet " | cut -d " " -f2 | grep -v "^127.0"</code>';
     return;
   }
 
@@ -37,41 +36,27 @@ Your internal IP is: <h1 id="iplist"></h1>
   };
 
   rtc.onicecandidate = function (evt) {
-    if (evt.candidate) grepSDP(evt.candidate.candidate);
+    if (evt.candidate) checkSDP(evt.candidate.candidate);
   };
 
   rtc.createOffer(function (offerDesc) {
-    grepSDP(offerDesc.sdp);
+    checkSDP(offerDesc.sdp);
     rtc.setLocalDescription(offerDesc);
-  }, function (e) { console.warn("offer failed", e); });
+  });
 
 
   var addrs = [];
-  function updateDisplay(newAddr) {
-    if (~addrs.indexOf(newAddr)) return;
-    else addrs.push(newAddr);
-    console.log(addrs);
-    var displayAddrs = addrs.filter(function (k) {
-      var nums = k.split('.').map(function(i){return parseInt(i, 10)});
-      if (nums[0] === 10) return true;
-      if (nums[0] === 172 && nums[1] >= 16 && nums[1] <= 31) return true;
-      if (nums[0] === 192 && nums[1] === 168) return true;
-      return false;
-    });
-    console.log(displayAddrs);
-    ipElem.innerHTML = displayAddrs.join(" or perhaps ") || '...';
+  function checkSDP(sdp) {
+    var match = sdp.match(/\d+\.\d+\.\d+\.\d+/);
+    if (!match || ~addrs.indexOf(match[0]) || !isInternal(match[0])) return;
+    addrs.push(match[0]);
+    ipElem.innerHTML = addrs.join(", ") || '...';
   }
-    
-  function grepSDP(sdp) {
-    sdp.split('\r\n').forEach(function (line) {
-      console.log(line);
-      if (~line.indexOf("a=candidate")) {
-        var parts = line.split(' ');
-        if (parts[7] === 'host') updateDisplay(parts[4]);
-      } else if (~line.indexOf("c=")) {
-        updateDisplay(line.split(' ')[2]);
-      }
-    });
+
+  function isInternal(ip){
+    var s = ip.split('.')[1];
+    return (ip.match(/^10\./) || ip.match(/^192\.168\./) ||
+      (ip.match(/^172\.(\d+)\./) && s >= 16 && s <= 31));
   }
 })();
 </script>
