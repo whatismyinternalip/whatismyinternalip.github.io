@@ -1,70 +1,79 @@
-
 <!doctype html>
 <html><head>
     <meta charset="utf-8">
     <title>Whatismyinternalip.com</title>
+    <style>
+body{
+  text-align: center;
+}
+#byline {
+  font-style: italic;
+}
+    </style>
 </head><body>
-Your internal IP is: <h1 id=list>-</h1>
+Your internal IP is: <h1 id="iplist"></h1>
+<br />
+<br />
+<p>Heavily inspired by <a href="https://2x.io/read/security-by-obscurity">this</a> and <a href="http://net.ipcalf.com/">this</a>.</p>
+<p><a href="https://github.com/whatismyinternalip/whatismyinternalip.github.io">Fork me on Github.</a></p>
+<p id="byline">Made by <a href="https://twitter.com/bengl">@bengl</a></p>
 
 
 
 <script>
+(function() {
+  var RTCPeerConnection = window.webkitRTCPeerConnection || window.mozRTCPeerConnection;
+  var unavail = 'Not available. Try this:<br/><code>$ ifconfig | grep "inet " | cut -d " " -f2 | grep -v "^127.0"</code>';
+  var ipElem = document.getElementById('iplist');
 
-// NOTE: window.RTCPeerConnection is "not a constructor" in FF22/23
-var RTCPeerConnection = /*window.RTCPeerConnection ||*/ window.webkitRTCPeerConnection || window.mozRTCPeerConnection;
+  if (!RTCPeerConnection) {
+    ipElem.innerHTML = unavail;
+    return;
+  }
 
-if (RTCPeerConnection) (function () {
-    var rtc = new RTCPeerConnection({iceServers:[]});
-    if (window.mozRTCPeerConnection) {      // FF needs a channel/stream to proceed
-        rtc.createDataChannel('', {reliable:false});
-    };
-    
-    rtc.onicecandidate = function (evt) {
-        if (evt.candidate) grepSDP(evt.candidate.candidate);
-    };
-    rtc.createOffer(function (offerDesc) {
-        grepSDP(offerDesc.sdp);
-        rtc.setLocalDescription(offerDesc);
-    }, function (e) { console.warn("offer failed", e); });
-    
-    
-    var addrs = Object.create(null);
-    addrs["0.0.0.0"] = false;
-    function updateDisplay(newAddr) {
-        if (newAddr in addrs) return;
-        else addrs[newAddr] = true;
-        var displayAddrs = Object.keys(addrs).filter(function (k) {
-          return addrs[k];
-        }).filter(function(k){
-          var nums = k.split('.').map(function(i){return parseInt(i, 10)});
-          if (nums[0] === 10) return true;
-          if (nums[0] === 172 && nums[1] >= 16 && nums[1] <= 31) return true;
-          if (nums[0] === 192 && nums[1] === 168) return true;
-          return false;
-        });
-        document.getElementById('list').textContent = displayAddrs.join(" or perhaps ") || "n/a";
-    }
-    
-    function grepSDP(sdp) {
-        var hosts = [];
-        sdp.split('\r\n').forEach(function (line) { // c.f. http://tools.ietf.org/html/rfc4566#page-39
-            if (~line.indexOf("a=candidate")) {     // http://tools.ietf.org/html/rfc4566#section-5.13
-                var parts = line.split(' '),        // http://tools.ietf.org/html/rfc5245#section-15.1
-                    addr = parts[4],
-                    type = parts[7];
-                if (type === 'host') updateDisplay(addr);
-            } else if (~line.indexOf("c=")) {       // http://tools.ietf.org/html/rfc4566#section-5.7
-                var parts = line.split(' '),
-                    addr = parts[2];
-                updateDisplay(addr);
-            }
-        });
-    }
-})(); else {
-    document.getElementById('list').innerHTML = "<code>ifconfig | grep inet | grep -v inet6 | cut -d\" \" -f2 | tail -n1</code>";
-    document.getElementById('list').nextSibling.textContent = "In Chrome and Firefox your IP should display automatically, through WebRTC.";
-}
+  var rtc = new RTCPeerConnection({iceServers:[]});
+  if (window.mozRTCPeerConnection) {      // FF needs a channel/stream to proceed
+    rtc.createDataChannel('', {reliable:false});
+  };
 
+  rtc.onicecandidate = function (evt) {
+    if (evt.candidate) grepSDP(evt.candidate.candidate);
+  };
+
+  rtc.createOffer(function (offerDesc) {
+    grepSDP(offerDesc.sdp);
+    rtc.setLocalDescription(offerDesc);
+  }, function (e) { console.warn("offer failed", e); });
+
+
+  var addrs = [];
+  function updateDisplay(newAddr) {
+    if (~addrs.indexOf(newAddr)) return;
+    else addrs.push(newAddr);
+    console.log(addrs);
+    var displayAddrs = addrs.filter(function (k) {
+      var nums = k.split('.').map(function(i){return parseInt(i, 10)});
+      if (nums[0] === 10) return true;
+      if (nums[0] === 172 && nums[1] >= 16 && nums[1] <= 31) return true;
+      if (nums[0] === 192 && nums[1] === 168) return true;
+      return false;
+    });
+    console.log(displayAddrs);
+    ipElem.innerHTML = displayAddrs.join(" or perhaps ") || unavail;
+  }
+    
+  function grepSDP(sdp) {
+    sdp.split('\r\n').forEach(function (line) {
+      console.log(line);
+      if (~line.indexOf("a=candidate")) {
+        var parts = line.split(' ');
+        if (parts[7] === 'host') updateDisplay(parts[4]);
+      } else if (~line.indexOf("c=")) {
+        updateDisplay(line.split(' ')[2]);
+      }
+    });
+  }
+})();
 </script>
 
 </body></html>
