@@ -59,7 +59,7 @@ Your internal IP is: <h1 id="iplist"></h1>
       return false;
     });
     console.log(displayAddrs);
-    ipElem.innerHTML = displayAddrs.join(" or perhaps ") || unavail;
+    ipElem.innerHTML = displayAddrs.join(" or perhaps ") || '...';
   }
     
   function grepSDP(sdp) {
