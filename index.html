@@ -12,7 +12,7 @@ body{
 }
     </style>
 </head><body>
-Your internal IP is: <h1 id="iplist"></h1>
+Your internal IP is: <h1 id="iplist">&nbsp;</h1>
 <br />
 <br />
 <p>Heavily inspired by <a href="https://2x.io/read/security-by-obscurity">this</a> and <a href="http://net.ipcalf.com/">this</a>.</p>
@@ -43,7 +43,7 @@ Your internal IP is: <h1 id="iplist"></h1>
   rtc.createOffer(function (offerDesc) {
     checkSDP(offerDesc.sdp);
     rtc.setLocalDescription(offerDesc);
-  });
+  }, console.warn);
 
 
   var addrs = [];
