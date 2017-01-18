@@ -32,9 +32,9 @@ Your internal IP is: <h1 id="iplist"></h1>
   }
 
   var rtc = new RTCPeerConnection({iceServers:[]});
-  if (window.mozRTCPeerConnection) {      // FF needs a channel/stream to proceed
-    rtc.createDataChannel('', {reliable:false});
-  };
+  
+  // browsers need a channel/stream to proceed
+  rtc.createDataChannel('', {reliable:false});
 
   rtc.onicecandidate = function (evt) {
     if (evt.candidate) checkSDP(evt.candidate.candidate);
