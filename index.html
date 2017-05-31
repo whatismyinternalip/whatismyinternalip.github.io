@@ -10,12 +10,16 @@ body{
 #byline {
   font-style: italic;
 }
+#externalLabel {
+  display: none;
+}
     </style>
 </head><body>
 Your internal IP is: <h1 id="iplist">&nbsp;</h1>
 <br />
 <br />
-<p>Heavily inspired by <a href="https://2x.io/read/security-by-obscurity">this</a> and <a href="http://net.ipcalf.com/">this</a>.</p>
+<i id="externallabel">And your external IP is: <span id="externallist"></span></i>
+<p>Heavily inspired by <a href="https://web.archive.org/web/20141001093423/https://hacking.ventures/local-ip-discovery-with-html5-webrtc-security-and-privacy-risk/">this</a> and <a href="http://net.ipcalf.com/">this</a>.</p>
 <p><a href="https://github.com/whatismyinternalip/whatismyinternalip.github.io">Fork me on GitHub</a></p>
 <p id="byline">Made by <a href="https://twitter.com/bengl">@bengl</a></p>
 
@@ -23,36 +27,46 @@ Your internal IP is: <h1 id="iplist">&nbsp;</h1>
 
 <script>
 (function() {
-  var RTCPeerConnection = window.webkitRTCPeerConnection || window.mozRTCPeerConnection;
-  var ipElem = document.getElementById('iplist');
+  var RTCPeerConnection = window.RTCPeerConnection ||
+    window.webkitRTCPeerConnection ||
+    window.mozRTCPeerConnection;
 
   if (!RTCPeerConnection) {
-    ipElem.innerHTML = 'Not available. Try this:<br/><code>$ ifconfig | grep "inet " | cut -d " " -f2 | grep -v "^127.0"</code>';
+    document.body.innerHTML = 'Not available. Try this:<br/><code>$ ifconfig | grep "inet " | cut -d " " -f2 | grep -v "^127.0"</code>';
     return;
   }
 
-  var rtc = new RTCPeerConnection({iceServers:[]});
-  
+  var ipElem = document.getElementById('iplist');
+  var externalLabel = document.getElementById('externallabel');
+  var externalList = document.getElementById('externallist');
+  var addrs = [];
+  var externalAddrs = [];
+
+  var rtc = new RTCPeerConnection({
+    "iceServers": [{"urls":["stun:stun.l.google.com:19302"]}],
+    "iceTransportPolicy":"all",
+    "iceCandidatePoolSize":"0"
+  });
+
   // browsers need a channel/stream to proceed
   rtc.createDataChannel('', {reliable:false});
 
-  rtc.onicecandidate = function (evt) {
-    if (evt.candidate) checkSDP(evt.candidate.candidate);
+  rtc.onicecandidate = function checkSDP(evt) {
+    if (!evt.candidate) return;
+    var match = evt.candidate.candidate.match(/\d+\.\d+\.\d+\.\d+/);
+    if (!match || ~addrs.indexOf(match[0])) return;
+    if (isInternal(match[0])) {
+      addrs.push(match[0]);
+      ipElem.innerHTML = addrs.join(", ") || '...';
+    } else {
+      if (match[0] === '127.0.0.1' || ~externalAddrs.indexOf(match[0])) return;
+      externalLabel.style = 'display: inline';
+      externalAddrs.push(match[0]);
+      externalList.innerHTML = externalAddrs.join(', ');
+    }
   };
 
-  rtc.createOffer(function (offerDesc) {
-    checkSDP(offerDesc.sdp);
-    rtc.setLocalDescription(offerDesc);
-  }, console.warn);
-
-
-  var addrs = [];
-  function checkSDP(sdp) {
-    var match = sdp.match(/\d+\.\d+\.\d+\.\d+/);
-    if (!match || ~addrs.indexOf(match[0]) || !isInternal(match[0])) return;
-    addrs.push(match[0]);
-    ipElem.innerHTML = addrs.join(", ") || '...';
-  }
+  rtc.createOffer(rtc.setLocalDescription.bind(rtc), console.warn);
 
   function isInternal(ip){
     var s = ip.split('.')[1];
